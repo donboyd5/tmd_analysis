@@ -1,0 +1,102 @@
+---
+title: "Tax microdata analysis"
+format: html
+---
+
+# Analysis of tax data
+
+## Setup
+
+Martin's comments on running tax-calculator:
+
+> Yes, but let me suggest a low-risk way of doing that: avoid Python, use the CLI tc tool instead after renaming the `tmd.csv` file. So, in any directory, rename tmd.csv as say xxx.csv Then execute: % tc path_to_directory/xxx.csv 2021 --exact --tables --dump --dvars DVARS
+>
+> where DVARS is name of a file containing all the dump variables you want.
+>
+> The resulting xxx-21-#-#-#.csv file contains all the dump output.
+>
+> Use tc --help for more information or send me an email.
+
+```{python}
+#| label: libraries
+
+import taxcalc as tc
+import pandas as pd
+import numpy as np
+
+# from grow_factors_boyd import GrowFactors
+# import grow_factors_boyd as gfb
+import extrapolate as xt
+import time
+
+import importlib
+
+# importlib.reload(gfb)
+
+importlib.reload(xt)
+
+```
+
+```{python}
+#| label: define-locations
+
+TMDDIR = "~/Documents/python_projects/tmd_test/"
+
+tmd_fname = TMDDIR + "tmd.csv.gz" 
+weights_fname = TMDDIR + "tmd_weights.csv.gz"
+gfactors_fname = TMDDIR + "growfactors.csv"
+
+```
+
+## Get data
+
+```{python}
+#| label: get-data
+
+tmd_df = pd.read_csv(tmd_fname)
+tmd_wts = pd.read_csv(weights_fname)
+gfdf = pd.read_csv(gfactors_fname)
+
+```
+
+```{python}
+#| label: run-tax-calculator
+
+pol = tc.Policy()
+year = 2026
+recsdf = xt.advance(tmd_df, year, tmd_wts, gfdf)
+recs = tc.Records(data=recsdf, start_year=year, gfactors=None, weights=None)
+calc = tc.Calculator(policy=pol, records=recs)
+calc.total_weight() # sum of s006 weights
+tmd_wts[f'WT{year}'].sum() / 100.
+
+start_time = time.perf_counter()
+calc.calc_all()
+end_time = time.perf_counter()
+print(f"Elapsed time: {end_time - start_time} seconds")
+
+```
+
+```{python}
+#| label: save-results
+
+recs.IGNORED_VARS
+recsdf[list(recs.IGNORED_VARS)]
+
+tmd_out = calc.dataframe(variable_list=[], all_vars=True)
+# merge back the columns that tc drops!!! then save
+addcols = list(recs.IGNORED_VARS)
+tmd_out[addcols] = recsdf[addcols]
+# pd.concat([tmd_out, recsdf[]], axis=1)
+sorted(tmd_out.columns)
+
+# pufdf['pid'] = np.arange(len(pufdf))
+# pufdf['filer'] = pu.filers(pufdf)
+
+# print('saving the advanced puf...')
+
+tmd_out.to_csv(TMDDIR + 'test.csv')
+tmd_out.to_parquet(TMDDIR + 'test.parquet', engine='pyarrow')
+
+```
+
