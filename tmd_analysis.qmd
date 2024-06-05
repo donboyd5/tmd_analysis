@@ -1,5 +1,5 @@
 ---
-title: "Tax microdata analysis"
+title: 'Tax microdata analysis'
 format: html
 ---
 
@@ -26,7 +26,7 @@ import numpy as np
 
 # from grow_factors_boyd import GrowFactors
 # import grow_factors_boyd as gfb
-import extrapolate as xt
+import tax_calculator_tools.extrapolate as xt
 import time
 
 import importlib
@@ -40,11 +40,14 @@ importlib.reload(xt)
 ```{python}
 #| label: define-locations
 
-TMDDIR = "~/Documents/python_projects/tmd_test/"
+# TMDDIR = '~/Documents/python_projects/tmd_test/'
+TMDDIR = '~/Documents/python_projects/tax-microdata-benchmarking/tax_microdata_benchmarking/storage/output/'
 
-tmd_fname = TMDDIR + "tmd.csv.gz" 
-weights_fname = TMDDIR + "tmd_weights.csv.gz"
-gfactors_fname = TMDDIR + "growfactors.csv"
+OUTDIR = '~/Documents/python_projects/tmd_analysis/data/results/'
+
+tmd_fname = TMDDIR + 'tmd.csv.gz' 
+weights_fname = TMDDIR + 'tmd_weights.csv.gz'
+gfactors_fname = TMDDIR + 'growfactors.csv'
 
 ```
 
@@ -63,7 +66,7 @@ gfdf = pd.read_csv(gfactors_fname)
 #| label: run-tax-calculator
 
 pol = tc.Policy()
-year = 2026
+year = 2028
 recsdf = xt.advance(tmd_df, year, tmd_wts, gfdf)
 recs = tc.Records(data=recsdf, start_year=year, gfactors=None, weights=None)
 calc = tc.Calculator(policy=pol, records=recs)
@@ -73,7 +76,7 @@ tmd_wts[f'WT{year}'].sum() / 100.
 start_time = time.perf_counter()
 calc.calc_all()
 end_time = time.perf_counter()
-print(f"Elapsed time: {end_time - start_time} seconds")
+print(f'Elapsed time: {end_time - start_time} seconds')
 
 ```
 
@@ -95,8 +98,8 @@ sorted(tmd_out.columns)
 
 # print('saving the advanced puf...')
 
-tmd_out.to_csv(TMDDIR + 'test.csv')
-tmd_out.to_parquet(TMDDIR + 'test.parquet', engine='pyarrow')
+tmd_out.to_csv(OUTDIR + 'test.csv')
+tmd_out.to_parquet(OUTDIR + 'test.parquet', engine='pyarrow')
 
 ```
 

@@ -3,5 +3,6 @@ __pycache__/
 *$py.class
 
 README_files/
+data/
 
 *.html
