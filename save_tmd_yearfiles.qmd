@@ -1,0 +1,244 @@
+---
+title: 'Save tmd year-files'
+format: html
+---
+
+# Setup
+
+```{python}
+#| label: libraries
+
+from taxcalc import GrowFactors, Policy, Records, Calculator
+import os
+import pandas as pd
+
+```
+
+```{python}
+#| label: define-locations
+
+TMDDIR = '~/Documents/python_projects/tax-microdata-benchmarking/tax_microdata_benchmarking/storage/output/'
+TMDDIR = os.path.expanduser(TMDDIR)
+TMDDIR
+
+OUTDIR = '~/Documents/python_projects/tmd_analysis/data/results/'
+OUTDIR = os.path.expanduser(OUTDIR)
+
+tmd_fname = TMDDIR + 'tmd.csv.gz' 
+weights_fname = TMDDIR + 'tmd_weights.csv.gz'
+gfactors_fname = TMDDIR + 'growfactors.csv'
+
+```
+
+# Get data
+
+```{python}
+#| label: get-data
+
+tmd_wts = pd.read_csv(weights_fname)
+gf1 = GrowFactors(growfactors_filename=gfactors_fname)
+recs = Records(data=tmd_fname, start_year=2021, gfactors=gf1, weights=weights_fname)
+
+pol = Policy()
+calc = Calculator(policy=pol, records=recs)
+calc.total_weight() # sum of s006 weights in start_year
+
+```
+
+# Calculate taxes for a year, and save
+
+```{python}
+#| label: calc-taxes
+
+year = 2021
+calc.advance_to_year(year)
+calc.total_weight() 
+calc.calc_all()
+
+```
+
+# Prepare, and save
+
+```{python}
+#| label: prep-and-save
+tmd_df = pd.read_csv(tmd_fname)
+tmd_out = calc.dataframe(variable_list=[], all_vars=True)
+
+# are there any ignored columns?
+sorted(tmd_df.columns)
+ignored_columns = set(tmd_df.columns) - set(tmd_out.columns) # none!
+recs.IGNORED_VARS # none!
+
+# merge back the columns that tc drops!!! then save
+# addcols = list(recs.IGNORED_VARS)
+# tmd_out[addcols] = recsdf[addcols]
+# pd.concat([tmd_out, recsdf[]], axis=1)
+sorted(tmd_out.columns)
+
+fnbase = 'tmdout_' + str(year)
+tmd_out.to_csv(OUTDIR + fnbase + '.csv')
+tmd_out.to_parquet(OUTDIR + fnbase + '.parquet', engine='pyarrow')
+
+
+```
+
+
+# Old stuff - Martin's full example, and my older musings
+
+```{python}
+#| label: Martin-example
+#| eval: false
+
+
+TMDDIR = '~/Documents/python_projects/tax-microdata-benchmarking/tax_microdata_benchmarking/storage/output/'
+TMDDIR = os.path.expanduser(TMDDIR)
+TMDDIR
+
+tmd_fname = TMDDIR + 'tmd.csv.gz' 
+weights_fname = TMDDIR + 'tmd_weights.csv.gz'
+gfactors_fname = TMDDIR + 'growfactors.csv'
+
+tmd_wts = pd.read_csv(weights_fname)
+
+# gf0 = GrowFactors()
+# gfactors_fname
+# os.path.isfile(gfactors_fname)
+
+# os.path.isfile('~/Documents/python_projects/tax-microdata-benchmarking/tax_microdata_benchmarking/storage/output/growfactors.csv')
+
+# gf1 = GrowFactors(growfactors_filename='../Tax-Calculator/mygf.csv')
+
+gf1 = GrowFactors(growfactors_filename=gfactors_fname)
+gf1.factor_value('AWAGE', 2022)
+
+# i can modify growfactors on the fly by substituting a new gfdf
+temp = gf1.gfdf
+temp.AWAGE = temp.AWAGE * 1.01
+gf1.gfdf = temp
+
+recs = Records(data=tmd_fname, start_year=2021, gfactors=gf1, weights=weights_fname)
+recs.gfactors.factor_value('AWAGE', 2022)
+
+# recs = tc.Records(data=tmd_fname, start_year=2021, gfactors=gfdf, weights=weights_fname) # NO!
+
+pol = Policy()
+# year = 2028
+# recsdf = xt.advance(tmd_df, year, tmd_wts, gfdf)
+# recs = tc.Records(data=recsdf, start_year=year, gfactors=None, weights=None)
+calc = Calculator(policy=pol, records=recs)
+calc.total_weight() # sum of s006 weights
+
+calc.data_year # always stays as the year we give it
+calc.current_year # the year we have advanced do
+calc.weighted_total('iitax')
+calc.calc_all()
+
+calc = Calculator(policy=pol, records=recs)
+wt2021 = calc.total_weight() 
+uwwage2021 = calc.array('e00200').sum()
+wage2021 = calc.weighted_total('e00200')
+wcheck2021 = (calc.array('e00200') * calc.array('s006')).sum() # ok
+avgwage2021 = wage2021 / wt2021
+
+calc.advance_to_year(2022)
+wt2022 = calc.total_weight() 
+calc.array('s006').sum()
+uwwage2022 = calc.array('e00200').sum() # unweighted wage advanced by growfactors
+wage2022 = calc.weighted_total('e00200')
+wcheck2022 = (calc.array('e00200') * calc.array('s006')).sum() # ok
+avgwage2022 = wage2022 / wt2022
+
+uwwage2022 / uwwage2021
+
+
+# self.array(variable_name) * self.array('s006')).sum()
+
+for year in range(2021, 2025):    
+    print(year)
+    calc.advance_to_year(year)
+    print(calc.total_weight())
+    # print(tmd_wts[f'WT{year}'].sum() / 100.)   # good, always the same
+    print(calc.weighted_total('iitax')) # appears to be old tax new weights and gf??
+    calc.calc_all()
+    print(calc.weighted_total('iitax')) # appears to be new tax new weights new gf
+    print("\n")
+
+
+calc.advance_to_year(2022)
+
+year = 2021
+tmd_wts[f'WT{year}'].sum() / 100.
+calc.advance_to_year(2022)
+calc.total_weight()
+calc.advance_to_year(2021)
+
+
+
+dir(recs)
+recs.CPSCSV_YEAR
+
+
+recs0 = Records('puf.csv', start_year=Records.PUFCSV_YEAR, gfactors=gf0)
+recs1 = Records('puf.csv', start_year=Records.PUFCSV_YEAR, gfactors=gf1)
+
+calc0 = Calculator(policy=Policy(), records=recs0)
+calc1 = Calculator(policy=Policy(), records=recs1)
+
+calc0.advance_to_year(TAXYEAR)
+calc1.advance_to_year(TAXYEAR)
+
+calc0.calc_all()
+calc1.calc_all()
+
+itax0 = calc0.weighted_total('iitax')
+itax1 = calc1.weighted_total('iitax')
+
+assert itax1 > itax0
+print(round(itax0*1e-9, 3), round(itax1*1e-9, 3))
+
+
+```
+```{python}
+#| label: run-tax-calculator
+#| eval: false
+
+
+pol = tc.Policy()
+year = 2028
+recsdf = xt.advance(tmd_df, year, tmd_wts, gfdf)
+recs = tc.Records(data=recsdf, start_year=year, gfactors=None, weights=None)
+calc = tc.Calculator(policy=pol, records=recs)
+calc.total_weight() # sum of s006 weights
+tmd_wts[f'WT{year}'].sum() / 100.
+
+start_time = time.perf_counter()
+calc.calc_all()
+end_time = time.perf_counter()
+print(f'Elapsed time: {end_time - start_time} seconds')
+
+```
+
+```{python}
+#| label: save-results
+#| eval: false
+
+recs.IGNORED_VARS
+recsdf[list(recs.IGNORED_VARS)]
+
+tmd_out = calc.dataframe(variable_list=[], all_vars=True)
+# merge back the columns that tc drops!!! then save
+addcols = list(recs.IGNORED_VARS)
+tmd_out[addcols] = recsdf[addcols]
+# pd.concat([tmd_out, recsdf[]], axis=1)
+sorted(tmd_out.columns)
+
+# pufdf['pid'] = np.arange(len(pufdf))
+# pufdf['filer'] = pu.filers(pufdf)
+
+# print('saving the advanced puf...')
+
+tmd_out.to_csv(OUTDIR + 'test.csv')
+tmd_out.to_parquet(OUTDIR + 'test.parquet', engine='pyarrow')
+
+```
+
