@@ -5,6 +5,8 @@ format: html
 
 # Setup
 
+Be sure to use environment tc, which has latest tc.
+
 ```{python}
 #| label: libraries
 
@@ -69,7 +71,7 @@ sorted(tmd_df.columns)
 ignored_columns = set(tmd_df.columns) - set(tmd_out.columns) # none!
 recs.IGNORED_VARS # none!
 
-# merge back the columns that tc drops!!! then save
+# merge back any columns that tc drops!!! then save
 # addcols = list(recs.IGNORED_VARS)
 # tmd_out[addcols] = recsdf[addcols]
 # pd.concat([tmd_out, recsdf[]], axis=1)
